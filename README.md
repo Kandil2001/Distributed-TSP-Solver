@@ -36,6 +36,7 @@
 - [Features](#features)  
 - [Quick Start](#quick-start)
 - [Theoretical Background](#theoretical-background)  
+- [Code Implementation](#code-implementation)
 - [Performance Metrics](#performance-metrics)  
 - [Roadmap](#roadmap)  
 - [Troubleshooting](#troubleshooting)
@@ -44,21 +45,21 @@
 - [License](#license)
 
 ## Overview
-This project delivers a **robust, scalable, and mathematically rigorous** framework for solving the Traveling Salesman Problem (TSP) on distributed clusters.  
-It combines **Parallel Tempering (Replica Exchange)**, **Metropolis-Hastings MCMC**, and **low-level memory optimizations** to escape local minima in complex energy landscapes.  
+This project delivers a <b>robust, scalable, and mathematically rigorous</b> framework for solving the Traveling Salesman Problem (TSP) on distributed clusters.  
+It combines <b>Parallel Tempering (Replica Exchange)</b>, <b>Metropolis-Hastings MCMC</b>, and <b>low-level memory optimizations</b> to escape local minima in complex energy landscapes.  
 
 Designed for:
-- **HPC Engineers** analyzing strong scaling efficiency
-- **Researchers** in combinatorial optimization
-- **Systems Developers** interested in MPI synchronization patterns
+- <b>HPC Engineers</b> analyzing strong scaling efficiency
+- <b>Researchers</b> in combinatorial optimization
+- <b>Systems Developers</b> interested in MPI synchronization patterns
 
 ## Features
-🚀 **Massive Speedup** – Achieves **20.7x speedup** on 24 cores vs serial execution  
-🔥 **Thermodynamic Tunneling** – Uses 24 temperature replicas to traverse non-convex landscapes  
-🗺 **O(1) Delta Updates** – Precomputed distance matrices eliminate $O(N)$ math bottlenecks  
-🛡 **Deadlock Free** – Implements a synchronized "Odd-Even" handshake protocol  
-📊 **Automated Analytics** – Full Bash/Octave pipeline for generating scaling graphs  
-📈 **Visual Outputs** – Real-time route maps, efficiency plots & swap rate analysis
+🚀 <b>Massive Speedup</b> – Achieves <b>20.7x speedup</b> on 24 cores vs serial execution  
+🔥 <b>Thermodynamic Tunneling</b> – Uses 24 temperature replicas to traverse non-convex landscapes  
+🗺 <b>O(1) Delta Updates</b> – Precomputed distance matrices eliminate O(N) math bottlenecks  
+🛡 <b>Deadlock Free</b> – Implements a synchronized "Odd-Even" handshake protocol  
+📊 <b>Automated Analytics</b> – Full Bash/Octave pipeline for generating scaling graphs  
+📈 <b>Visual Outputs</b> – Real-time route maps, efficiency plots & swap rate analysis
 
 <p align="center">
   <img src="figures/scaling_speedup.png" width="550" alt="Strong Scaling Speedup Graph">
@@ -67,7 +68,7 @@ Designed for:
 ## Quick Start
 
 ```bash
-git clone [https://github.com/YOUR_USERNAME/Distributed-TSP-Solver.git](https://github.com/YOUR_USERNAME/Distributed-TSP-Solver.git)
+git clone [https://github.com/Kandil2001/Distributed-TSP-Solver.git](https://github.com/Kandil2001/Distributed-TSP-Solver.git)
 cd Distributed-TSP-Solver
 make
 
@@ -95,13 +96,13 @@ Execute the automated test suite (1-24 cores) and generate CSV logs:
 
 ### 🔹 The Metropolis-Hastings Kernel
 
-We model the TSP tour length as the energy of a physical system. The solver uses a **2-opt local search** move set. To satisfy detailed balance, moves are accepted with probability .
+We model the TSP tour length as the energy of a physical system. The solver uses a <b>2-opt local search</b> move set. To satisfy detailed balance, moves are accepted with probability .
 
 ---
 
 ### 🔹 Parallel Tempering (Replica Exchange)
 
-Standard Simulated Annealing often gets trapped in local minima. Parallel Tempering overcomes this by running multiple replicas at different temperatures and allowing them to **exchange states**.
+Standard Simulated Annealing often gets trapped in local minima. Parallel Tempering overcomes this by running multiple replicas at different temperatures and allowing them to <b>exchange states</b>.
 
 This allows "cold" replicas to tunnel through high-energy barriers by swapping with "hot" replicas.
 
@@ -109,22 +110,55 @@ This allows "cold" replicas to tunnel through high-energy barriers by swapping w
 
 ### 🔹 The Deadlock Problem
 
-In distributed memory systems, a naive swap implementation leads to a **Circular Wait** (Deadlock) where every processor is waiting to send data.
+In distributed memory systems, a naive swap implementation leads to a <b>Circular Wait</b> (Deadlock) where every processor is waiting to send data.
 
-We resolved this using a **Parity-Based Handshake Protocol**:
+We resolved this using a <b>Parity-Based Handshake Protocol</b>:
 
-1. **Even Phase**: Ranks  communicate.
-2. **Odd Phase**: Ranks  communicate.
+1. <b>Even Phase</b>: Ranks 2n ↔ 2n+1 communicate.
+2. <b>Odd Phase</b>: Ranks 2n+1 ↔ 2n+2 communicate.
 
----
+## Code Implementation
 
-### 🔹 Computational Complexity
+### 1. The O(1) Distance Lookup
 
-By precomputing the distance matrix , we reduce the cost of calculating the energy difference  from **Linear ** to **Constant **.
+Instead of calculating square roots in the inner loop, we precompute a lookup table (LUT). This reduces the complexity of a `get_delta` calculation from **O(N)** to **O(1)**.
+
+```c
+/* Precomputed Matrix Access - O(1) */
+static inline double get_dist(int i, int j) {
+    return dist_matrix[i * N_CITIES + j];
+}
+
+/* Delta Calculation using 4 edges */
+double delta = (get_dist(cA, cB) + get_dist(cA_n, cB_n)) - 
+               (get_dist(cA, cA_n) + get_dist(cB, cB_n));
+
+```
+
+### 2. Deadlock-Free Parity Handshake
+
+We avoid circular waits by strictly ordering communication. Even ranks initiate swaps in even steps; odd ranks initiate in odd steps.
+
+```c
+/* Parity-Based Synchronization Logic */
+int parity = step % 2;
+
+// Even Phase: Rank 0 talks to 1, 2 talks to 3...
+if (rank % 2 == parity && rank < size - 1) {
+    // Initiate Swap with Right Neighbor
+    MPI_Sendrecv(&my_energy, 1, MPI_DOUBLE, rank+1, ...);
+} 
+// Odd Phase: Rank 1 talks to 2, 3 talks to 4...
+else if (rank % 2 != parity && rank > 0) {
+    // Respond to Left Neighbor
+    MPI_Recv(&partner_energy, 1, MPI_DOUBLE, rank-1, ...);
+}
+
+```
 
 ## Performance Metrics
 
-Tested on: **24-Core Cluster, OpenMPI 4.1.0, GCC 9.3**
+Tested on: <b>24-Core Cluster, OpenMPI 4.1.0, GCC 9.3</b>
 
 ### 1. Strong Scaling & Efficiency
 
@@ -140,7 +174,7 @@ The system maintains high parallel efficiency (86%) even at 24 cores. The slight
 
 ### 2. Thermodynamic Health (Swap Rates)
 
-A critical success factor for Parallel Tempering is the **Swap Acceptance Rate**. As shown below, increasing the number of replicas (and thus density in temperature space) improves the swap probability, facilitating better tunneling through energy barriers.
+A critical success factor for Parallel Tempering is the <b>Swap Acceptance Rate</b>. As shown below, increasing the number of replicas (and thus density in temperature space) improves the swap probability, facilitating better tunneling through energy barriers.
 
 <p align="center">
 <img src="figures/scaling_swap_rate.png" width="600" alt="Swap Acceptance Rate">
@@ -180,11 +214,11 @@ A common risk in parallelization is "breaking" the algorithm logic. As shown bel
 
 ## Acknowledgments
 
-This project was developed as a final thesis for the **High Performance Computing** course at the **Bergische Universität Wuppertal**. We extend our gratitude to:
+This project was developed as a final thesis for the <b>High Performance Computing</b> course at the <b>Bergische Universität Wuppertal</b>. We extend our gratitude to:
 
-* **Dr. T. Korzec** & **Dr. J. Koponen** for supervision and theoretical guidance.
-* **The OpenMPI Project** for robust communication libraries.
-* **The Scientific Computing Community** for foundational MCMC algorithms.
+* <b>Dr. T. Korzec</b> & <b>Dr. J. Koponen</b> for supervision and theoretical guidance.
+* <b>The OpenMPI Project</b> for robust communication libraries.
+* <b>The Scientific Computing Community</b> for foundational MCMC algorithms.
 
 ## Contributing
 
