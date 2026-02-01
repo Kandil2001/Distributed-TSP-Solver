@@ -126,15 +126,34 @@ By precomputing the distance matrix , we reduce the cost of calculating the ener
 
 Tested on: **24-Core Cluster, OpenMPI 4.1.0, GCC 9.3**
 
-| Metric | Result |
-| --- | --- |
-| **Speedup** | 20.7x (Linear Scaling) |
-| **Efficiency** | 86.4% |
-| **Convergence** | 100% (Global Optimum Found) |
-| **Time to Sol.** | 0.32 seconds |
+### 1. Strong Scaling & Efficiency
+
+The system maintains high parallel efficiency (86%) even at 24 cores. The slight dip is expected due to Amdahl's Law and network latency.
 
 <p align="center">
-<img src="figures/scaling_efficiency.png" width="500" alt="Parallel Efficiency">
+<img src="figures/scaling_efficiency.png" width="48%" alt="Parallel Efficiency">
+<img src="figures/scaling_breakdown_fixed.png" width="48%" alt="Runtime Breakdown">
+</p>
+<i>Left: Efficiency drops slightly at 24 cores. Right: Computation (Metropolis) dominates, but Communication (Swap) overhead grows marginally.</i>
+
+---
+
+### 2. Thermodynamic Health (Swap Rates)
+
+A critical success factor for Parallel Tempering is the **Swap Acceptance Rate**. As shown below, increasing the number of replicas (and thus density in temperature space) improves the swap probability, facilitating better tunneling through energy barriers.
+
+<p align="center">
+<img src="figures/scaling_swap_rate.png" width="600" alt="Swap Acceptance Rate">
+</p>
+
+---
+
+### 3. Solution Quality & Stability
+
+A common risk in parallelization is "breaking" the algorithm logic. As shown below, our solver consistently finds the global optimum () across all core counts, proving the thermodynamic balance is preserved.
+
+<p align="center">
+<img src="figures/scaling_quality_bar.png" width="600" alt="Solution Quality Consistency">
 </p>
 
 ## Roadmap
