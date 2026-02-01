@@ -70,5 +70,109 @@ Designed for:
 git clone [https://github.com/YOUR_USERNAME/Distributed-TSP-Solver.git](https://github.com/YOUR_USERNAME/Distributed-TSP-Solver.git)
 cd Distributed-TSP-Solver
 make
+
 ```
 
+### Run a Single Instance
+
+Solve the `berlin52` dataset using 4 processor cores:
+
+```bash
+mpirun -np 4 ./tsp_solver data/berlin52.tsp
+
+```
+
+### Run Full Scaling Benchmark
+
+Execute the automated test suite (1-24 cores) and generate CSV logs:
+
+```bash
+./scripts/scaling_test.sh
+
+```
+
+## Theoretical Background
+
+### 🔹 The Metropolis-Hastings Kernel
+
+We model the TSP tour length as the energy of a physical system. The solver uses a **2-opt local search** move set. To satisfy detailed balance, moves are accepted with probability .
+
+---
+
+### 🔹 Parallel Tempering (Replica Exchange)
+
+Standard Simulated Annealing often gets trapped in local minima. Parallel Tempering overcomes this by running multiple replicas at different temperatures and allowing them to **exchange states**.
+
+This allows "cold" replicas to tunnel through high-energy barriers by swapping with "hot" replicas.
+
+---
+
+### 🔹 The Deadlock Problem
+
+In distributed memory systems, a naive swap implementation leads to a **Circular Wait** (Deadlock) where every processor is waiting to send data.
+
+We resolved this using a **Parity-Based Handshake Protocol**:
+
+1. **Even Phase**: Ranks  communicate.
+2. **Odd Phase**: Ranks  communicate.
+
+---
+
+### 🔹 Computational Complexity
+
+By precomputing the distance matrix , we reduce the cost of calculating the energy difference  from **Linear ** to **Constant **.
+
+## Performance Metrics
+
+Tested on: **24-Core Cluster, OpenMPI 4.1.0, GCC 9.3**
+
+| Metric | Result |
+| --- | --- |
+| **Speedup** | 20.7x (Linear Scaling) |
+| **Efficiency** | 86.4% |
+| **Convergence** | 100% (Global Optimum Found) |
+| **Time to Sol.** | 0.32 seconds |
+
+<p align="center">
+<img src="figures/scaling_efficiency.png" width="500" alt="Parallel Efficiency">
+</p>
+
+## Roadmap
+
+* [x] MPI Distributed Implementation
+* [x] O(1) Matrix Optimization
+* [x] Strong Scaling Analysis
+* [ ] Hybrid OpenMP/MPI support
+* [ ] GPU Acceleration (CUDA)
+
+## Troubleshooting
+
+**Q:** `mpirun` not found?
+
+**A:** Ensure OpenMPI is installed: `sudo apt install openmpi-bin libopenmpi-dev`.
+
+**Q:** Compiler errors with `sqrt`?
+
+**A:** Ensure the linker flag `-lm` is present in the Makefile (included by default).
+
+**Q:** Segmentation Fault?
+
+**A:** Check that `data/berlin52.tsp` exists and is readable.
+
+## Acknowledgments
+
+This project was developed as a final thesis for the **High Performance Computing** course at the **Bergische Universität Wuppertal**. We extend our gratitude to:
+
+* **Dr. T. Korzec** & **Dr. J. Koponen** for supervision and theoretical guidance.
+* **The OpenMPI Project** for robust communication libraries.
+* **The Scientific Computing Community** for foundational MCMC algorithms.
+
+## Contributing
+
+We welcome contributions of all kinds — bug fixes, performance improvements, documentation updates, and new features.
+
+Please read our [CONTRIBUTING.md](https://www.google.com/search?q=CONTRIBUTING.md) for detailed contribution guidelines, coding standards, and workflow instructions before submitting a pull request.
+
+## License
+
+MIT License – see [LICENSE](https://www.google.com/search?q=LICENSE) for details.
