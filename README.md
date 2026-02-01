@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://www.uni-wuppertal.de/en/">
-    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Bergische_Universit%C3%A4t_Wuppertal_Logo.svg/2560px-Bergische_Universit%C3%A4t_Wuppertal_Logo.svg.png" alt="Bergische Universität Wuppertal Logo" width="220" style="margin-right: 40px;">
+    <img src="figures/philunet_case_logo_bergische_universitaet_wuppertal.jpg" alt="Bergische Universität Wuppertal Logo" width="220" style="margin-right: 40px;">
   </a>
   <a href="https://www.open-mpi.org/">
     <img src="https://www.open-mpi.org/images/open-mpi-logo.png" alt="OpenMPI Logo" width="160" style="margin-right: 40px;">
