@@ -11,7 +11,7 @@
 
 This repository contains my distributed-memory solver for the Traveling Salesman Problem, written in C and parallelized with MPI. I built it as part of a High Performance Computing course at Bergische Universität Wuppertal.
 
-The project uses parallel tempering to study how a stochastic optimization method behaves when the search is divided across several MPI processes. Each process explores the problem at a different temperature, and neighboring processes periodically exchange routes.
+The project uses parallel tempering to study how a stochastic optimization method behaves when the search is divided across several MPI processes. Each replica explores the problem at a different temperature, and neighboring replicas periodically exchange routes.
 
 <p align="center">
   <img src="figures/route_comparison.png" width="760" alt="Comparison between the optimized and reference TSP routes">
@@ -23,10 +23,10 @@ The project uses parallel tempering to study how a stochastic optimization metho
 - Parallel tempering with multiple temperature replicas
 - Metropolis-Hastings acceptance logic
 - Two-opt route updates
-- Precomputed distance matrix for constant-time distance lookups
+- Precomputed distance matrix for constant-time lookups
 - Deadlock-free communication between neighboring MPI ranks
 - Strong-scaling measurements across several process counts
-- Octave scripts for plotting runtime, efficiency, route quality, and swap behaviour
+- Octave scripts for plotting runtime, efficiency, and route quality
 
 ## How the solver works
 
@@ -44,21 +44,7 @@ The exchange step helps colder replicas leave local minima by receiving routes t
 
 ## Implementation details
 
-### Constant-time route updates
-
 A two-opt move only replaces two edges, so the full route length does not need to be recalculated after every proposal. The change in distance is evaluated using four lookups from a precomputed distance matrix.
-
-```c
-static inline double get_dist(int i, int j) {
-    return dist_matrix[i * N_CITIES + j];
-}
-
-double delta =
-    (get_dist(cA, cB) + get_dist(cA_n, cB_n))
-    - (get_dist(cA, cA_n) + get_dist(cB, cB_n));
-```
-
-### Replica exchange
 
 Communication alternates between two neighboring-rank patterns:
 
@@ -82,39 +68,49 @@ For the tested Berlin52 configuration, the parallel version reached a reported s
   <img src="figures/scaling_breakdown_fixed.png" width="48%" alt="Runtime breakdown">
 </p>
 
-The swap-rate and route-quality plots are included to check whether the replicas exchange routes often enough and whether scaling the run changes the quality of the final solution.
-
 <p align="center">
-  <img src="figures/scaling_swap_rate.png" width="48%" alt="Replica swap acceptance rate">
-  <img src="figures/scaling_quality_bar.png" width="48%" alt="Solution quality across process counts">
+  <img src="figures/scaling_quality_bar.png" width="620" alt="Solution quality across process counts">
 </p>
 
 ## Running the code
 
-The project requires a C compiler, MPI, and the math library. Octave is used for the result plots.
-
-On Ubuntu or Debian, the main dependencies can be installed with:
+On Ubuntu or Debian, install the main dependencies with:
 
 ```bash
 sudo apt install build-essential openmpi-bin libopenmpi-dev octave
 ```
 
-Clone the repository and follow the included run script or compile the C source with `mpicc`:
+Build and run the included Berlin52 case:
 
 ```bash
 git clone https://github.com/Kandil2001/Distributed-TSP-Solver.git
 cd Distributed-TSP-Solver
-mpicc -O3 tsp_mpi.c -o tsp_solver -lm
+make
 mpirun -np 4 ./tsp_solver data/berlin52.tsp
 ```
 
-The included cluster script can be used to repeat the strong-scaling study and generate the CSV data used by the plotting scripts.
+The cluster scaling study can be submitted with:
+
+```bash
+sbatch script/scaling_test.sh
+```
+
+## Repository structure
+
+```text
+script/tsp_mpi.c            MPI solver
+script/scaling_test.sh      cluster scaling study
+script/plot_*.m             Octave plotting scripts
+data/berlin52.tsp            included benchmark case
+figures/                     selected published plots
+Makefile                     local build configuration
+```
 
 ## Notes and limitations
 
 This is an educational HPC project rather than a general-purpose TSP library. The current version focuses on one MPI-based parallel-tempering approach and was mainly evaluated using the Berlin52 case.
 
-The reported timings are specific to the tested cluster and solver settings. Because the method is stochastic, a wider statistical study with repeated runs would be needed before drawing broader conclusions about solution quality or scalability.
+The reported timings are specific to the tested cluster and solver settings. Because the method is stochastic, repeated runs would be needed before drawing broader conclusions about solution quality or scalability.
 
 Useful next steps include hybrid MPI and OpenMP parallelism, CUDA acceleration, additional TSPLIB datasets, and runtime configuration of the temperature schedule and solver parameters.
 
