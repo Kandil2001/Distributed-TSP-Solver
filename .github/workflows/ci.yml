@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openmpi-bin libopenmpi-dev python3 python3-matplotlib
+
+      - name: Build
+        run: make
+
+      - name: Smoke test (deterministic)
+        run: |
+          mpirun --allow-run-as-root -np 2 bin/tsp_solver data/berlin52.tsp --replicas 4 --steps 10 --deterministic --swap-interval 2
+
+      - name: Run plotting script
+        run: |
+          python3 script/plot_results.py --solution solution.txt --route my_route.txt --tsp data/berlin52.tsp --output figures/route_comparison_python.png

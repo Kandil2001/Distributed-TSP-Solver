@@ -3,12 +3,14 @@
 *.out
 *.exe
 tsp_solver
+bin/tsp_solver
 
 # Generated benchmark output
 *.log
 scaling_results.csv
 solution.txt
 my_route.txt
+figures/route_comparison_python.png
 
 # Editors and operating systems
 .vscode/

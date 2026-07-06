@@ -27,6 +27,7 @@ The project uses parallel tempering to study how a stochastic optimization metho
 - Deadlock-free communication between neighboring MPI ranks
 - Strong-scaling measurements across several process counts
 - Octave scripts for plotting runtime, efficiency, and route quality
+- Python plotting script (`script/plot_results.py`) for route visualization without MATLAB/Octave
 
 ## How the solver works
 
@@ -72,27 +73,75 @@ For the tested Berlin52 configuration, the parallel version reached a reported s
   <img src="figures/scaling_quality_bar.png" width="620" alt="Solution quality across process counts">
 </p>
 
-## Running the code
+## Getting started
 
 On Ubuntu or Debian, install the main dependencies with:
 
 ```bash
-sudo apt install build-essential openmpi-bin libopenmpi-dev octave
+sudo apt install build-essential openmpi-bin libopenmpi-dev python3 python3-matplotlib octave
 ```
 
-Build and run the included Berlin52 case:
+Build the solver:
 
 ```bash
 git clone https://github.com/Kandil2001/Distributed-TSP-Solver.git
 cd Distributed-TSP-Solver
 make
-mpirun -np 4 ./tsp_solver data/berlin52.tsp
 ```
 
-The cluster scaling study can be submitted with:
+The binary is generated at `bin/tsp_solver`.
+
+## How to run
+
+Run with defaults (`data/berlin52.tsp`, 24 replicas, 260000 steps):
+
+```bash
+mpirun --allow-run-as-root -np 4 bin/tsp_solver
+```
+
+Run with explicit options (short deterministic smoke run):
+
+```bash
+mpirun --allow-run-as-root -np 2 bin/tsp_solver data/berlin52.tsp \
+  --replicas 4 --steps 10 --swap-interval 2 --deterministic
+```
+
+Available CLI flags:
+
+- `--replicas N`
+- `--steps N`
+- `--swap-interval N`
+- `--initial-temp X`
+- `--temp-decay X`
+- `--seed N`
+- `--deterministic`
+- `--help`
+
+Important: replicas must divide evenly across MPI processes (`replicas % np == 0`).
+
+The solver writes:
+
+- `solution.txt` (best distance)
+- `my_route.txt` (city index route for plotting)
+
+Plot results without MATLAB:
+
+```bash
+python3 script/plot_results.py --solution solution.txt --route my_route.txt --tsp data/berlin52.tsp
+```
+
+The cluster scaling study can still be submitted with:
 
 ```bash
 sbatch script/scaling_test.sh
+```
+
+For local CI-equivalent smoke testing:
+
+```bash
+make
+mpirun --allow-run-as-root -np 2 bin/tsp_solver data/berlin52.tsp --replicas 4 --steps 10 --deterministic --swap-interval 2
+python3 script/plot_results.py --solution solution.txt --route my_route.txt --tsp data/berlin52.tsp --output figures/route_comparison_python.png
 ```
 
 ## Repository structure
@@ -101,6 +150,7 @@ sbatch script/scaling_test.sh
 script/tsp_mpi.c            MPI solver
 script/scaling_test.sh      cluster scaling study
 script/plot_*.m             Octave plotting scripts
+script/plot_results.py      Python plotting script (no MATLAB required)
 data/berlin52.tsp            included benchmark case
 figures/                     selected published plots
 Makefile                     local build configuration
