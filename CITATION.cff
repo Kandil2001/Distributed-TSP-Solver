@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software or benchmark in academic work, please cite it using this metadata."
+title: "Distributed TSP Solver"
+type: software
+authors:
+  - family-names: Kandil
+    given-names: Ahmed
+    orcid: "https://orcid.org/0009-0007-2724-4565"
+repository-code: "https://github.com/Kandil2001/Distributed-TSP-Solver"
+url: "https://kandil2001.github.io/projects/distributed-tsp.html"
+license: MIT
+keywords:
+  - Traveling Salesman Problem
+  - MPI
+  - parallel tempering
+  - high-performance computing
+  - C
+  - stochastic optimization
