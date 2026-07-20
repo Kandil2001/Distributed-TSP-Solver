@@ -1,0 +1,68 @@
+name: MPI build and smoke test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install OpenMPI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openmpi-bin libopenmpi-dev
+
+      - name: Build production solver
+        run: make
+
+      - name: Build reduced smoke-test binary
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path('script/tsp_mpi.c').read_text(encoding='utf-8')
+          production = '#define TOTAL_SWAP_ATTEMPTS 5000'
+          smoke = '#define TOTAL_SWAP_ATTEMPTS 5'
+          if production not in source:
+              raise SystemExit('Could not locate the production swap-attempt setting.')
+          Path('/tmp/tsp_mpi_smoke.c').write_text(
+              source.replace(production, smoke, 1),
+              encoding='utf-8',
+          )
+          PY
+          mpicc -O2 -std=c99 -Wall -Wextra /tmp/tsp_mpi_smoke.c -o /tmp/tsp_solver_smoke -lm
+
+      - name: Run two-rank MPI smoke case
+        run: timeout 60s mpirun --oversubscribe -np 2 /tmp/tsp_solver_smoke data/berlin52.tsp
+
+      - name: Verify MPI outputs
+        run: |
+          test -x tsp_solver
+          test -s solution.txt
+          test -s my_route.txt
+          python3 - <<'PY'
+          from math import isfinite
+          from pathlib import Path
+
+          distance = float(Path('solution.txt').read_text(encoding='utf-8').strip())
+          if not isfinite(distance) or distance <= 0.0:
+              raise SystemExit(f'Invalid route length: {distance}')
+
+          route = [int(value) for value in Path('my_route.txt').read_text(encoding='utf-8').split()]
+          expected = list(range(52))
+          if len(route) != 52 or sorted(route) != expected:
+              raise SystemExit('The MPI result is not a valid permutation of the 52 cities.')
+
+          print(f'Verified two-rank MPI output with route length {distance:.4f}.')
+          PY
