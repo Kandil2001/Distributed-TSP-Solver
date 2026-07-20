@@ -1,9 +1,9 @@
 graphics_toolkit("gnuplot");
-output_img = 'route_comparison.png';
+output_img = 'route_comparison_tsplib_euc2d.png';
 
-% 1. Read Coordinates from berlin52.tsp
-% (Skipping header manually to be robust)
-fid = fopen('berlin52.tsp', 'r');
+% 1. Read coordinates from the included TSPLIB instance.
+fid = fopen('data/berlin52.tsp', 'r');
+if fid < 0, error('Could not open data/berlin52.tsp'); end
 coords = [];
 reading = 0;
 while ~feof(fid)
@@ -17,47 +17,32 @@ while ~feof(fid)
 end
 fclose(fid);
 
-% 2. Read My Route
+% 2. Read the solver route, written as zero-based city indices.
 if exist('my_route.txt', 'file')
-    my_route = load('my_route.txt'); 
-    my_route = my_route + 1; % Convert 0-based (C) to 1-based (Matlab)
-    my_route = [my_route; my_route(1)]; % Close the loop
+    my_route = load('my_route.txt') + 1;
+    my_route = [my_route; my_route(1)];
 else
-    error("my_route.txt missing. Run the simulation first.");
+    error('my_route.txt is missing. Run the solver first.');
 end
 
-% 3. Read Optimal Route
-opt_route = [];
-if exist('berlin52.opt.tour', 'file')
-    fid = fopen('berlin52.opt.tour', 'r');
-    while ~feof(fid)
-        line = fgetl(fid);
-        if strcmp(line, 'TOUR_SECTION'), break; end
-    end
-    opt_route = fscanf(fid, '%d');
-    opt_route = opt_route(opt_route ~= -1);
-    opt_route = [opt_route; opt_route(1)];
-    fclose(fid);
+% 3. Read the official one-based optimal tour.
+fid = fopen('data/berlin52.opt.tour', 'r');
+if fid < 0, error('Could not open data/berlin52.opt.tour'); end
+while ~feof(fid)
+    line = fgetl(fid);
+    if strcmp(strtrim(line), 'TOUR_SECTION'), break; end
 end
+opt_route = fscanf(fid, '%d');
+opt_route = opt_route(opt_route ~= -1);
+opt_route = [opt_route; opt_route(1)];
+fclose(fid);
 
-% --- PLOT ---
 h = figure('visible', 'off', 'Position', [0,0,1000,800]);
-
-% Plot Cities
 plot(coords(:,1), coords(:,2), 'ko', 'MarkerFaceColor', 'k', 'MarkerSize', 6); hold on;
-
-% Plot Optimal (Red Dashed)
-if ~isempty(opt_route)
-    plot(coords(opt_route,1), coords(opt_route,2), 'r--', 'LineWidth', 2);
-end
-
-% Plot Mine (Blue Solid)
-% Shift slightly so it doesn't perfectly hide the red line if identical
+plot(coords(opt_route,1), coords(opt_route,2), 'r--', 'LineWidth', 2);
 plot(coords(my_route,1)+1, coords(my_route,2)+1, 'b-', 'LineWidth', 1.5);
-
-legend({'Cities', 'Optimal Tour (Red)', 'My Solution (Blue)'}, 'Location', 'northeast');
-title('Route Comparison: Berlin52', 'FontSize', 16, 'FontWeight', 'bold');
+legend({'Cities', 'Official optimal tour', 'Solver route'}, 'Location', 'northeast');
+title('Berlin52 Route Comparison: TSPLIB EUC\_2D', 'FontSize', 16, 'FontWeight', 'bold');
 xlabel('X Coordinate'); ylabel('Y Coordinate');
 grid on;
-
 print(output_img, '-dpng');
