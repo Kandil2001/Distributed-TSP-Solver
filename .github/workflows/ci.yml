@@ -1,4 +1,4 @@
-name: MPI build and smoke test
+name: MPI build and TSPLIB validation
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  build-and-smoke:
+  build-and-validate:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,6 +25,14 @@ jobs:
 
       - name: Build production solver
         run: make
+
+      - name: Verify the official Berlin52 optimal-tour weight
+        run: |
+          output=$(mpirun --oversubscribe -np 1 ./tsp_solver \
+            data/berlin52.tsp \
+            --evaluate-tour data/berlin52.opt.tour)
+          printf '%s\n' "$output"
+          test "$output" = "Tour weight (TSPLIB EUC_2D): 7542"
 
       - name: Build reduced smoke-test binary
         run: |
@@ -43,8 +51,10 @@ jobs:
           PY
           mpicc -O2 -std=c99 -Wall -Wextra /tmp/tsp_mpi_smoke.c -o /tmp/tsp_solver_smoke -lm
 
-      - name: Run two-rank MPI smoke case
-        run: timeout 60s mpirun --oversubscribe -np 2 /tmp/tsp_solver_smoke data/berlin52.tsp
+      - name: Run deterministic two-rank MPI smoke case
+        run: |
+          timeout 60s mpirun --oversubscribe -np 2 \
+            /tmp/tsp_solver_smoke data/berlin52.tsp --seed 20260720
 
       - name: Verify MPI outputs
         run: |
@@ -55,14 +65,15 @@ jobs:
           from math import isfinite
           from pathlib import Path
 
-          distance = float(Path('solution.txt').read_text(encoding='utf-8').strip())
-          if not isfinite(distance) or distance <= 0.0:
-              raise SystemExit(f'Invalid route length: {distance}')
+          text = Path('solution.txt').read_text(encoding='utf-8').strip()
+          distance = float(text)
+          if not isfinite(distance) or distance <= 0.0 or not distance.is_integer():
+              raise SystemExit(f'Invalid TSPLIB route length: {text}')
 
           route = [int(value) for value in Path('my_route.txt').read_text(encoding='utf-8').split()]
           expected = list(range(52))
           if len(route) != 52 or sorted(route) != expected:
               raise SystemExit('The MPI result is not a valid permutation of the 52 cities.')
 
-          print(f'Verified two-rank MPI output with route length {distance:.4f}.')
+          print(f'Verified deterministic two-rank MPI output with route length {distance:.0f}.')
           PY
